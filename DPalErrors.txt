@@ -1,0 +1,8 @@
+state->iErrorClass = -6;
+state->iErrorNumber = 3;
+sprintf(state->sErrorMsg, "Film Table %d File Name in the INI file corrupted", filmType);
+return state->iErrorClass;
+
+
+state->iErrorClass = -22;		// FIXME magic number - I think this means "SCSI error"
+state->iErrorNumber = aspiStatus >> 8;
