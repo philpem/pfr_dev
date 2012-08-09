@@ -25,7 +25,7 @@ Prefixes known or guessed:
  */
 typedef struct {
 	char	saMagicString[24];
-	int		iPort;
+	int		iDeviceFd;					// File descriptor associated with the SCSI device
 	int		iHorRes, iVerRes;
 	int		iLineLength;
 	int		iHorOff, iVerOff;
@@ -44,7 +44,7 @@ typedef struct {
 	char	field_75[14];								//
 	char	ColourLUT[768];								// three 256-entry 8bit->8bit colour channel LUTs - in order: red, green, blue
 	char	cImageCompression;
-	char	ucStatusByte0, ucStatusByte1;
+	unsigned char	ucStatusByte0, ucStatusByte1;
 	char	field_386[2];								// never used
 	int		uiExposedLines;
 	char	saExposureStatus[64];						// seems to be a status string; updated by DP_GetPrinterStatus if mode&0x48 != 0
@@ -56,7 +56,7 @@ typedef struct {
 	int		iBufferFree;
 	int		field_414;									// set and used by decode_scsi_inquiry_scb
 	char	field_418;									// never used, probably padding
-	char	ucCameraCode;
+	unsigned char	ucCameraCode;
 	char	saCameraType[14];							// this is either 14 bytes, or 12 bytes with some padding
 	int		iErrorNumber;
 	char	sErrorMsg[64];
@@ -98,7 +98,7 @@ int DP_ExposureWarning(DPAL_STATE *state);
 // DP_FirmWareLoad --> not implemented (intentionally!)
 // DP_FirmWareStart --> not implemented (intentionally!)
 int DP_GetPrinterStatus(DPAL_STATE *state, int mode);
-int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, int interfaceNum, int *filmRecorderID);
+int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID);
 /// Returns 4x 16-bit integers in bmData
 int DP_InqBlockMode(DPAL_STATE *state, unsigned int *bmData);
 int DP_Pacing(DPAL_STATE *state, int pacing);

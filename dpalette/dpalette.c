@@ -554,7 +554,7 @@ int DP_firmware_rev(DPAL_STATE *state)
 	return state->iFirmwareVersion;
 }
 
-int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, int interfaceNum, int *filmRecorderID)
+int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 {
 	int i, j, err;
 	char str[200];
@@ -570,7 +570,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, int interfaceNum, int
 	memset(state, '\0', sizeof(*state));
 
 	// Store the driver version information
-	strcpy(state->saDriverVersion, "DPalette Driver V6.0");
+	sprintf(state->saDriverVersion, "%s %s", "DPalette Driver V6.0", "Linux SCSI");	// FIXME pull the SCSI driver name from the OSAL
 
 #if 0
 	i = GetWindowsDirectory(_global_windowsDirectory, sizeof(_global_windowsDirectory));
@@ -624,14 +624,6 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, int interfaceNum, int
 	}
 #endif
 
-	strcat(state->saDriverVersion, " ");
-	strcat(state->saDriverVersion, "ASPI SCSI");
-
-	if (interfaceNum)
-		state->iPort = interfaceNum;
-	else
-		state->iPort = 17;
-
 	err = DP_scsi_init(state, filmRecorderID);
 	if (err)
 		return state->iErrorClass;
@@ -641,8 +633,10 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, int interfaceNum, int
 		if (state->iErrorClass <= -3) {
 			return state->iErrorClass;
 		} else {
-			if ((state->iErrorNumber != 0x2600) && (state->iErrorNumber != 0x2701))
-				return state->iErrorClass;
+// !!! FIXME !!!
+// FIXME: This breaks badly. Bet the case conditions are wrong.
+//			if ((state->iErrorNumber != 0x2600) && (state->iErrorNumber != 0x2701))
+//				return state->iErrorClass;
 		}
 	}
 

@@ -6,3 +6,15 @@ return state->iErrorClass;
 
 state->iErrorClass = -22;		// FIXME magic number - I think this means "SCSI error"
 state->iErrorNumber = aspiStatus >> 8;
+
+state->iErrorClass = -5;
+state->iErrorNumber = 0x2702;
+strcpy(state->sErrorMsg, "Bad Port Number");
+
+state->iErrorClass = -18;
+state->iErrorNumber = -4;
+strcpy(state->sErrorMsg, "Digital Palette is Busy, Disconnected, OFF or Not Initialized");
+
+state->iErrorClass = -20;
+state->iErrorNumber = 10002;
+strcpy(state->sErrorMsg, "There is a SCSI card, but no Polaroid CFR device connected");

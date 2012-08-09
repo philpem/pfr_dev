@@ -46,8 +46,8 @@ int LOG_Debug(DPAL_STATE *state, const char *message, const DEBUG_TYPE mode)
 			// e.g. "#message", followed by DPalette state
 			fprintf(logfile, "#%s\n    dp{\n", message);
 			fprintf(logfile,
-					"      iPort=%xh\n      iHorRes=%d\n      iVerRes=%d\n      iLineLength=%d\n",
-					state->iPort,
+					"      iDeviceFd=%xh\n      iHorRes=%d\n      iVerRes=%d\n      iLineLength=%d\n",
+					state->iDeviceFd,
 					state->iHorRes,
 					state->iVerRes,
 					state->iLineLength);
@@ -146,8 +146,8 @@ int LOG_Error(DPAL_STATE *state, const char *message, const ERROR_TYPE mode)
 	if (mode == 0) {
 		fprintf(logfile, "#%s =============== Error ==============\n    dp{\n", message);
 		fprintf(logfile,
-				"      iPort=%xh\n      iHorRes=%d\n      iVerRes=%d\n      iLineLength=%d\n",
-				state->iPort,
+				"      iDeviceFd=%xh\n      iHorRes=%d\n      iVerRes=%d\n      iLineLength=%d\n",
+				state->iDeviceFd,
 				state->iHorRes,
 				state->iVerRes,
 				state->iLineLength);

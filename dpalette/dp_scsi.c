@@ -1,6 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <scsi/sg.h>
 
 #include "dpalette.h"
 #include "dp_scsi.h"
@@ -553,200 +558,109 @@ static int dp_scsi_do_request_sense(DPAL_STATE *state, unsigned char *senseData)
 	return 0;
 }
 
-int DP_scsi_init(DPAL_STATE *state, int *filmRecorderID)
+int DP_scsi_init(DPAL_STATE *state, char *filmRecorderID)
 {
-#if 0
-	char windowsDirectory[135];
-	char retstr[16];
-	char dest[150];
-	unsigned char v9[63];
-	DWORD aspiErrorCode;
-	int numHostAdapters, numRecorders = 0;
+	unsigned char buf[99];
 
-	if (!((state->iPort < 16) || ((state->iPort - 16) <= 7))) {
-		state->iErrorClass = -5;
-		state->iErrorNumber = 9986;
-		strcpy(state->sErrorMsg, "Bad Port Number");
+	state->iDeviceFd = open(filmRecorderID, O_RDWR);
+	if (state->iDeviceFd < 0) {
+		state->iErrorClass = -18;
+		state->iErrorNumber = 0x2702;
+		strcpy(state->sErrorMsg, "Failed to open sg device node");
 		return state->iErrorClass;
 	}
 
-	_global_logLevel = GetPrivateProfileInt("Initialization", "Log", 0, "pfr.ini");
-	if (!((_global_logLevel != 2) || (GetPrivateProfileString("Initialization", "LogName", "", retstr, sizeof(retstr), "pfr.ini")))) {
-		state->iErrorClass = -22;
-		state->iErrorNumber = 4;
-		strcpy(state->sErrorMsg, "Can not retrieve  log file name from the PFR.INI file");
-		return state->iErrorClass;
-	}
+	// FIXME debug
+	printf("SCSI FD = %d\n", state->iDeviceFd);
 
-	if (GetWindowsDirectory(windowsDirectory, sizeof(windowsDirectory)) <= 0) {
-		strcpy(dest, retstr);
-	} else {
-		strcpy(dest, windowsDirectory);
-		strcat(dest, "\\");
-		strcat(dest, retstr);
-	}
-
-	aspiErrorCode = GetASPI32SupportInfo();
-
-	if (HIBYTE(LOWORD(aspiErrorCode)) != SS_COMP) {
-		dp_scsi_decode_aspi_error(aspiErrorCode, state);
-		return state->iErrorClass;
-	}
-
-	numHostAdapters = LOBYTE(LOWORD(aspiErrorCode));
-
-	if (!(numHostAdapters >= 1)) {
+	if (DP_doscsi_cmd(state, 0x12, buf, sizeof(buf), 0, 0, 0)) {
 		state->iErrorClass = -18;
 		state->iErrorNumber = -4;
 		strcpy(state->sErrorMsg, "Digital Palette is Busy, Disconnected, OFF or Not Initialized");
 		return state->iErrorClass;
 	}
 
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (!hEvent) {
+	if ((strncmp((char *)&buf[8], "DP2SCSI", strlen("DP2SCSI")) == 0) &&
+		(strncmp((char *)&buf[16], "Polaroid", strlen("Polaroid")) == 0)) {
+		dp_scsi_decode_inquiry_srb(buf, state);
 		return 0;
-	}
-
-	SRB_ExecSCSICmd *srb = malloc(sizeof(SRB_ExecSCSICmd));
-	memset(srb, 0, sizeof(SRB_ExecSCSICmd));
-	srb->SRB_Cmd = SC_EXEC_SCSI_CMD;
-	srb->SRB_Flags = 72;			// TODO: magic number!
-	srb->SRB_BufLen = 99;
-	srb->SRB_BufPointer = malloc(srb->SRB_BufLen);
-	srb->SRB_SenseLen = 14;
-	srb->SRB_CDBLen = 6;
-	srb->CDBByte[0] = 0x12;			// SCSI INQUIRY
-	srb->CDBByte[4] = srb->SRB_BufLen;	// Allocation length LSB
-	srb->SRB_PostProc = hEvent;
-
-	int haID, targetID;
-	for (haID = 0; haID < numHostAdapters; haID++) {
-		for (targetID = 0; targetID < 8; targetID++) {
-			srb->SRB_HaId = haID;
-			srb->SRB_Target = targetID;
-
-			// clear SRB and Sense buffers
-			memset(srb->SRB_BufPointer, 0, srb->SRB_BufLen);
-			memset(srb->SenseArea, 0, sizeof(srb->SenseArea));
-
-			aspiErrorCode = SendASPI32Command(srb);
-
-			if (aspiErrorCode == SS_PENDING) {
-				if (WaitForSingleObject(hEvent, INFINITE))
-					ResetEvent(hEvent);
-			}
-
-			char Str[80];
-			Str[0] = ' ';
-			strcpy(&Str[1], (char *)srb->SRB_BufPointer + 8);	// SCSI Vendor ID
-			if (strstr(Str, "DP2SCSI")) {
-				strcpy(&Str[1], (char *)srb->SRB_BufPointer + 16);	// SCSI Product ID
-				if (strstr(Str, "Polaroid")) {
-					_global_libraryIsInitialised = TRUE;
-					_global_scsi_targetID = targetID;
-					state->iPort = targetID + 16;
-					_global_scsi_haID = haID;
-					_global_recordersPresent[_global_scsi_targetID] = TRUE;
-					// TODO FIXME could probably pass the SRB Buf Pointer straight to dp_scsi_decode_inquiry_srb()
-					memcpy(v9, srb->SRB_BufPointer, sizeof(v9));
-					dp_scsi_decode_inquiry_srb(v9, state);
-					state->iErrorClass = 0;
-					state->iErrorNumber = 0;
-					strcpy(state->sErrorMsg, "Digital Palette reports no errors");
-					numRecorders++;
-					if (*filmRecorderID == numRecorders) {
-						CloseHandle(hEvent);
-						free(srb->SRB_BufPointer);
-						free(srb);
-						return 0;
-					}
-				}
-			}
-		}
-	}
-
-	if (((*filmRecorderID & DP_SCSI_INIT_GetRecorderCount) == 0) || (numRecorders <= 0)) {
-		state->iErrorClass = -20;
-		state->iErrorNumber = 10002;
-		strcpy(state->sErrorMsg, "There is a SCSI card, but no Polaroid CFR device connected");
-		state->iPort = 0;
-		CloseHandle(hEvent);
-		free(srb->SRB_BufPointer);
-		free(srb);
-		return state->iErrorClass;
 	} else {
-		*filmRecorderID = numRecorders;
-		return 0;
+		state->iErrorClass = -18;
+		state->iErrorNumber = -4;
+		strcpy(state->sErrorMsg, "Digital Palette is Busy, Disconnected, OFF or Not Initialized");
+		return state->iErrorClass;
 	}
-#endif
 }
 
 int DP_doscsi_cmd(DPAL_STATE *state, int scsiCmd, void *SRB_Buffer, size_t szSRB_Buffer, int scsiPageCode, char vendorControlBits, DP_SCSI_DIRECTION dir)
 {
-#if 0
-	HANDLE hEvent;
-	PSRB_ExecSCSICmd srb;
+	sg_io_hdr_t io_hdr;
+	unsigned char cdb[6];
+	unsigned char senseBuf[14];
 
-	if ((state->iPort < DP_PORT_SCSI) || (state->iPort > (DP_PORT_SCSI + 7)) || !_global_recordersPresent[state->iPort - DP_PORT_SCSI]) {
-		state->iErrorClass = -2;
-		state->iErrorNumber = 9986;
-		strcpy(state->sErrorMsg, "Digital Palette is Busy, Disconnected, OFF or Not Initialized");
-		return state->iErrorClass;
-	}
+	// Prepare the SCSI CDB
+	cdb[0] = scsiCmd;
+	cdb[1] = 0;
+	cdb[2] = scsiPageCode;
+	cdb[3] = (szSRB_Buffer >> 8);
+	cdb[4] = szSRB_Buffer & 0xff;
+	cdb[5] = vendorControlBits << 6;
 
-	if (!_global_libraryIsInitialised)
-		return 20000;
+	// Prepare the SCSI I/O header
+	memset(&io_hdr, '\0', sizeof(sg_io_hdr_t));
+	io_hdr.interface_id = 'S';	// SCSI
+	io_hdr.iovec_count = 0;		// memset does this for us but it never hurts to be sure :)
 
-	hEvent = CreateEvent(0, 1, 0, 0);	// FIXME magic numbers
-	if (!hEvent) {		// FIXME can't be right
-		return 0;
-	}
-
-	srb = malloc(256);	// FIXME why 256?
-	memset(srb, '\0', 256);
-
-	srb->SRB_Cmd = SC_EXEC_SCSI_CMD;
-
+	// data transfer direction
 	if (dir == SCSI_DIR_INPUT) {
-		srb->SRB_Flags = SRB_EVENT_NOTIFY | SRB_DIR_IN;
+		io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
 	} else if (dir == SCSI_DIR_OUTPUT) {
-		srb->SRB_Flags = SRB_EVENT_NOTIFY | SRB_DIR_OUT;
+		io_hdr.dxfer_direction = SG_DXFER_TO_DEV;
 	} else if (dir == SCSI_DIR_NONE) {
-		srb->SRB_Flags = SRB_EVENT_NOTIFY;
+		io_hdr.dxfer_direction = SG_DXFER_NONE;
 	}
 
-	srb->SRB_SenseLen = 14;
-	srb->SRB_CDBLen = 6;
-	srb->CDBByte[0] = scsiCmd;
-	srb->CDBByte[1] = 0;
-	srb->CDBByte[2] = scsiPageCode;
-	srb->CDBByte[3] = (szSRB_Buffer >> 8);
-	srb->CDBByte[4] = szSRB_Buffer & 0xff;
-	srb->CDBByte[5] = vendorControlBits << 6;
+	// data buffer
+	io_hdr.dxferp = SRB_Buffer;
 
-	srb->SRB_PostProc = hEvent;
-	srb->SRB_HaId = _global_scsi_haID;
-	srb->SRB_Target = _global_scsi_targetID;
-
-	if ((scsiCmd != 0x0C) || ((scsiPageCode != 4) && (scsiPageCode != 5)))	// FIXME - WAT?
-		srb->SRB_BufLen = szSRB_Buffer;
+	// Commands 0C:04 (Read Film Name) and 0C:05 (Read Aspect Ratio) accept a
+	// film ID number in the most significant byte of szSRB_Buffer.
+	// This code ANDs off the film number to get the transfer length.
+	if ((scsiCmd != 0x0C) || ((scsiPageCode != 0x04) && (scsiPageCode != 0x05)))
+		io_hdr.dxfer_len = szSRB_Buffer;
 	else
-		srb->SRB_BufLen = szSRB_Buffer & 0xFF;
+		io_hdr.dxfer_len = szSRB_Buffer & 0xFF;
 
-	srb->SRB_BufPointer = SRB_Buffer;
+	// command buffer
+	io_hdr.cmdp = cdb;
+	io_hdr.cmd_len = sizeof(cdb);
 
-	memset(srb->SenseArea, '\0', sizeof(srb->SenseArea));
+	// sense buffer
+	memset(senseBuf, '\0', sizeof(senseBuf));
+	io_hdr.sbp = senseBuf;
+	io_hdr.mx_sb_len = sizeof(senseBuf);
 
-	if (SendASPI32Command(srb) == SS_PENDING)
-		if (!WaitForSingleObject(hEvent, 0xFFFFFFFF))	// FIXME magic number
-			ResetEvent(hEvent);
+	// options
+	io_hdr.timeout = 20000;		// 20,000 milliseconds = 20 seconds
+	io_hdr.flags = 0;			// defaults: indirect I/O, etc.
+	io_hdr.pack_id = 0;
+	io_hdr.usr_ptr = NULL;
 
+	if (ioctl(state->iDeviceFd, SG_IO, &io_hdr) < 0) {
+		// FIXME this needs the error code checking
+		perror("SG_IO error");
+		return -1;
+	}
+
+	// FIXME if CHECK CONDITION then do a Request Sense and decode the sense buffer
+/*
 	if (srb->SRB_TargStat == 0x02) {		// STATUS_CHKCOND
 		return dp_scsi_do_request_sense(state, srb->SenseArea);
 	} else {
 		return 0;
 	}
-#endif
+*/
+	return 0;
 }
 
 int DP_scsi_inq(DPAL_STATE *state)

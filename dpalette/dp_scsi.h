@@ -17,7 +17,7 @@ typedef enum {
 	SCSI_DIR_NONE   = 3
 } DP_SCSI_DIRECTION;
 
-int DP_scsi_init(DPAL_STATE *state, int *filmRecorderID);
+int DP_scsi_init(DPAL_STATE *state, char *filmRecorderID);
 int DP_doscsi_cmd(DPAL_STATE *state, int scsiCmd, void *SRB_Buffer, size_t szSRB_Buffer, int scsiPageCode, char vendorControlBits, DP_SCSI_DIRECTION dir);
 int DP_scsi_inq(DPAL_STATE *state);
 
