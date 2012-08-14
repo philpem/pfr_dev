@@ -78,7 +78,7 @@ static void dp_scsi_decode_aspi_error(unsigned int aspiStatus, DPAL_STATE *state
 }
 #endif
 
-static char *dp_scsi_decode_sense(DPAL_STATE *state, unsigned char *senseData)
+static const char *dp_scsi_decode_sense(DPAL_STATE *state, unsigned char *senseData)
 {
 	int errCode = senseData[9] | (senseData[8] << 8);
 
@@ -514,7 +514,7 @@ static int dp_scsi_do_request_sense(DPAL_STATE *state, unsigned char *senseData)
 {
 	unsigned char senseBuf[10];
 
-	DP_doscsi_cmd(state, 0x03, senseBuf, sizeof(senseBuf), 0, 0, 0);
+	DP_doscsi_cmd(state, 0x03, senseBuf, sizeof(senseBuf), 0, 0, SCSI_DIR_INPUT);
 
 	if ((senseBuf[8] != 0x20) || (senseBuf[9] != 0)) {
 		state->iErrorClass = -2;
@@ -574,7 +574,7 @@ int DP_scsi_init(DPAL_STATE *state, char *filmRecorderID)
 	// FIXME debug
 	printf("SCSI FD = %d\n", state->iDeviceFd);
 
-	if (DP_doscsi_cmd(state, 0x12, buf, sizeof(buf), 0, 0, 0)) {
+	if (DP_doscsi_cmd(state, 0x12, buf, sizeof(buf), 0, 0, SCSI_DIR_INPUT)) {
 		state->iErrorClass = -18;
 		state->iErrorNumber = -4;
 		strcpy(state->sErrorMsg, "Digital Palette is Busy, Disconnected, OFF or Not Initialized");
@@ -688,9 +688,9 @@ int DP_doscsi_cmd(DPAL_STATE *state, int scsiCmd, void *SRB_Buffer, size_t szSRB
 		if (io_hdr.masked_status)
 			fprintf(stderr, "SCSI BUS  status: %d %d\n", io_hdr.masked_status, io_hdr.status);
 		if (io_hdr.host_status)
-			fprintf(stderr, "SCSI HOST status: %d %d\n", io_hdr.host_status);
+			fprintf(stderr, "SCSI HOST status: %d\n", io_hdr.host_status);
 		if (io_hdr.driver_status)
-			fprintf(stderr, "SCSI DRVR status: %d %d\n", io_hdr.driver_status);
+			fprintf(stderr, "SCSI DRVR status: %d\n", io_hdr.driver_status);
 		return 1;
 	} else {
 		return 0;
@@ -702,7 +702,7 @@ int DP_scsi_inq(DPAL_STATE *state)
 	int err;
 	unsigned char srbBuffer[63];
 
-	err = DP_doscsi_cmd(state, 0x12, srbBuffer, sizeof(srbBuffer), 0, 0, 0);
+	err = DP_doscsi_cmd(state, 0x12, srbBuffer, sizeof(srbBuffer), 0, 0, SCSI_DIR_INPUT);
 	if (err)
 		return err;
 
