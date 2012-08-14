@@ -159,7 +159,7 @@ static bool waitAndUpdateBufferFree(DPAL_STATE *state, const size_t nbytes)
 
 static int GetFilmTablePath(DP_MODEL model, char *buf, size_t bufSz)
 {
-	char *FilmRecorderModels[] = { "CI5000", "HR6000", "PP7000", "PP8000" };
+	const char *FilmRecorderModels[] = { "CI5000", "HR6000", "PP7000", "PP8000" };
 
 	// Range check
 	if ((model < 0) || (model > (sizeof(FilmRecorderModels)/sizeof(FilmRecorderModels[0]))))
