@@ -22,7 +22,7 @@ FILMTABLE *_global_films = NULL;
 int _global_logLevel = 0;
 char _global_logFilename[15];
 char _global_filmProfilePath[120];
-char _global_byte10014288;
+char _global_filmNumber;
 
 /// --- MACROS ---
 // These delay macros replace the horribly inefficient functions in Polaroid's
@@ -58,7 +58,7 @@ static void dp_PrepareParamBuffer(DPAL_STATE *state, unsigned char *buf)
 	buf[0] = buf[1] = buf[2] = 0;
 	pos=3;
 	buf[pos++] = 39;
-	buf[pos++] = _global_byte10014288;
+	buf[pos++] = _global_filmNumber;
 	buf[pos++] = 0;
 	buf[pos++] = (state->iHorRes >> 8) & 0xff;
 	buf[pos++] = state->iHorRes & 0xff;
@@ -85,8 +85,8 @@ static void dp_PrepareParamBuffer(DPAL_STATE *state, unsigned char *buf)
 	buf[pos++] = state->ucaExposTimeBlue;
 	buf[pos++] = 0;
 	buf[pos++] = state->cLiteDark;
-	buf[pos++] = (state->UNK_numTotalLines >> 8) & 0xff;
-	buf[pos++] = state->UNK_numTotalLines & 0xff;
+	buf[pos++] = (state->iVertHeight >> 8) & 0xff;
+	buf[pos++] = state->iVertHeight & 0xff;
 	buf[pos++] = state->cServo;
 
 	// FIXME? No idea if this is correct.
@@ -105,14 +105,14 @@ static void dp_PrepareParamBuffer(DPAL_STATE *state, unsigned char *buf)
 	}
 	pos++;
 
-	buf[pos++] = state->field_30[2];
-	buf[pos++] = state->field_30[3];
-	buf[pos++] = state->field_30[0];
+	buf[pos++] = state->cBu;
+	buf[pos++] = state->cCal;
+	buf[pos++] = state->clp;
 	buf[pos++] = 0;
-	buf[pos++] = state->field_30[1];
+	buf[pos++] = state->clu;
 
-	buf[pos++] = ((state->field_4C0 >> 8) & 0xff) | 0x80;
-	buf[pos++] = (state->field_4C0) & 0xff;
+	buf[pos++] = ((state->line_double_threshold >> 8) & 0xff) | 0x80;
+	buf[pos++] = (state->line_double_threshold) & 0xff;
 	buf[pos++] = 0;
 }
 
@@ -277,7 +277,16 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		}
 	}
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->field_75, sizeof(state->field_75), 8, 0, 1);		// FIXME: MAGIC NUMBERS
+	paramBuf[0] = state->cBkgndMode;
+	paramBuf[1] = state->ucBkgndValue;
+	for (i=0; i<3; i++) {
+		paramBuf[2+i]  = state->ucaUl_corner_color[i];
+		paramBuf[5+i]  = state->ucaUr_corner_color[i];
+		paramBuf[8+i]  = state->ucaLl_corner_color[i];
+		paramBuf[11+i] = state->ucaLr_corner_color[i];
+	}
+
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, 1);		// FIXME: MAGIC NUMBERS
 
 	if (state->iErrorClass) {
 		if (_global_logLevel) {
@@ -286,7 +295,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		return DP_GetPrinterStatus(state, 1);
 	}
 
-	camAdjBuf[0] = _global_byte10014288;
+	camAdjBuf[0] = _global_filmNumber;
 	camAdjBuf[1] = state->caCamAdjustX;
 	camAdjBuf[2] = state->caCamAdjustY;
 	camAdjBuf[3] = state->caCamAdjustZ;
@@ -301,11 +310,11 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 	}
 
 	if (state->iFirmwareVersion > 304) {
-		dp_write_int_be(state->field_4D4[1], extBuf, 0);
-		dp_write_int_be(state->field_4D8[0],  extBuf, 2);
-		dp_write_int_be(state->field_4D8[1],  extBuf, 4);
-		dp_write_int_be(state->field_4D8[2],  extBuf, 6);
-		dp_write_int_be(state->field_4D4[0], extBuf, 8);
+		dp_write_int_be(state->cExp_Fix_Type, extBuf, 0);
+		dp_write_int_be(state->uiExp_Fix_Min_Scans,  extBuf, 2);
+		dp_write_int_be(state->uiExp_Fix_Max_Luminant,  extBuf, 4);
+		dp_write_int_be(state->uiExp_Fix_Min_Hres_To_Diffuse,  extBuf, 6);
+		dp_write_int_be(state->cExp_Fix_Sticky, extBuf, 8);
 
 		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, extBuf, sizeof(extBuf), 0x12, 0, 1);		// FIXME: MAGIC NUMBERS
 
@@ -318,7 +327,16 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		}
 	}
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->field_75, sizeof(state->field_75), 8, 0, 1);		// FIXME: MAGIC NUMBERS
+	paramBuf[0] = state->cBkgndMode;
+	paramBuf[1] = state->ucBkgndValue;
+	for (i=0; i<3; i++) {
+		paramBuf[2+i]  = state->ucaUl_corner_color[i];
+		paramBuf[5+i]  = state->ucaUr_corner_color[i];
+		paramBuf[8+i]  = state->ucaLl_corner_color[i];
+		paramBuf[11+i] = state->ucaLr_corner_color[i];
+	}
+
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, 1);		// FIXME: MAGIC NUMBERS
 
 	// FIXME? I think this is right, but it may be in the wrong place...
 	if (state->iErrorClass) {
@@ -405,8 +423,8 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 
 		switch (state->iErrorClass) {
 			case -3:
-				state->field_471 = 0;
-				state->field_470 = 0;
+				state->cDPfound = 0;
+				state->cDPinitialized = 0;
 				return state->iErrorClass;
 			case 1:
 				strcpy(state->sErrorMsg, "Digital Palette Buffer is Full");
@@ -473,12 +491,12 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 			//   0=red, 1=green, 2=blue, 3=greyscale
 
 			if ((curColourWheel <= -1) || (curColourWheel >= 2)) {
-				sprintf(state->saExposureStatus, "%s, %d lines", "Grayscale", state->uiExposedLines);
+				sprintf(state->sStatusMsg, "%s, %d lines", "Grayscale", state->uiExposedLines);
 			} else {
-				sprintf(state->saExposureStatus, "%s, %d lines", ColourWheelStrs[curColourWheel], state->uiExposedLines);
+				sprintf(state->sStatusMsg, "%s, %d lines", ColourWheelStrs[curColourWheel], state->uiExposedLines);
 			}
 		} else {
-			state->saExposureStatus[0] = '\0';
+			state->sStatusMsg[0] = '\0';
 		}
 	}
 
@@ -491,16 +509,16 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 			return state->iErrorClass;
 
 		state->ucCameraCode = buf[45] | 0x80;
-		strcpy(state->saCameraType, (char *)&buf[46]);
+		strcpy(state->sCameraMsg, (char *)&buf[46]);
 	}
 
 	// mode & 0x10 --> get film name
 	if (mode & 0x10) {		// FIXME: MAGIC NUMBER
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)&state->saFilmName, (_global_byte10014288 << 8) | 24, 4, 0, 0); // 24 = 0x18 FIXME length of str?
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)&state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, 0); // 24 = 0x18 FIXME length of str?
 				// FIXME: MAGIC NUMBER ^^^
 
 		if (state->iErrorClass) {
-			if ((state->iErrorClass != -1) || (state->iErrorNumber != 9540)) {
+			if ((state->iErrorClass != -1) || (state->iErrorNumber != 0x2544)) {
 				DP_GetPrinterStatus(state, 1);	// FIXME: MAGIC NUMBER
 				return state->iErrorClass;
 			}
@@ -513,7 +531,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 	// mode & 0x20 --> get aspect ratio
 	if (mode & 0x20) {		// FIXME: MAGIC NUMBER
 		if (state->saFilmName[0]) {
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_byte10014288 << 8) | 2, 5, 0, 0);	// FIXME 2 = length?
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) | 2, 5, 0, 0);	// FIXME 2 = length?
 					// FIXME: MAGIC NUMBER ^^^
 
 			if (state->iErrorClass)
@@ -522,22 +540,21 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 			state->caAspectRatio[0] = 0;
 			state->caAspectRatio[1] = 0;
 		}
-		state->field_40F = 0;
 	}
 
 	// mode & 0x8000 -->
 	if (mode & 0x8000) {	// FIXME: MAGIC NUMBER
 		if (state->iFirmwareVersion > 304) {
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 4, 20, 0, 0);	// FOXME: MAGIC NUMBERS
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 4, 20, 0, 0);	// FIXME: MAGIC NUMBERS
 
 			if (state->iErrorClass)
 				return DP_GetPrinterStatus(state, 1);
 
-			state->field_4C8[0] = dp_read_int_be(buf, 0);
-			state->field_4C8[1] = dp_read_int_be(buf, 2);
+			state->uitimes_out_of_data = dp_read_int_be(buf, 0);
+			state->uiAutoluma_whoops = dp_read_int_be(buf, 2);
 		} else {
-			state->field_4C8[0] = 0;
-			state->field_4C8[1] = 0;
+			state->uitimes_out_of_data = 0;
+			state->uiAutoluma_whoops = 0;
 		}
 	}
 
@@ -570,7 +587,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 	memset(state, '\0', sizeof(*state));
 
 	// Store the driver version information
-	sprintf(state->saDriverVersion, "%s %s", "DPalette Driver V6.0", "Linux SCSI");	// FIXME pull the SCSI driver name from the OSAL
+	sprintf(state->sTKversion, "%s %s", "DPalette Driver V6.0", "Linux SCSI");	// FIXME pull the SCSI driver name from the OSAL
 
 #if 0
 	i = GetWindowsDirectory(_global_windowsDirectory, sizeof(_global_windowsDirectory));
@@ -640,7 +657,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 		}
 	}
 
-	state->field_471 = 1;
+	state->cDPfound = 1;
 
 	int CFRModel = -1;
 	// FIXME in this block: magic numbers!
@@ -730,7 +747,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 		byte10016E10 = filmtable_crypto_decrypt(buf);
 		state->saFilmName[2] = ' ';
 
-		if (strcmp(state->saCameraType, FilmTypeStrs[byte10016E10]) == 0) {
+		if (strcmp(state->sCameraMsg, FilmTypeStrs[byte10016E10]) == 0) {
 			for (i=3; i<strlen(state->saFilmName)-1; i++) {
 				if (state->saFilmName[i] == 'v') {
 					if ((DP_firmware_rev(state) > 700) && (DP_firmware_rev(state) < 800) && state->saFilmName[i+1] == '7') {
@@ -791,7 +808,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 			fseek(state->FFilmTable, 0, SEEK_SET);
 
 			char *filmtable =malloc(filmtableFileLen + 2);
-			*filmtable = _global_byte10014288;
+			*filmtable = _global_filmNumber;
 
 			if (dp_read_filmtable_bytes(state, (unsigned char *)filmtable+1, filmtableFileLen) != filmtableFileLen) {
 				dp_close_filmtable(state);
@@ -820,16 +837,17 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 				return state->iErrorClass;
 			}
 #endif
-
+#if LOADFILMS
 			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)filmtable, filmtableFileLen + 1, 10, 0, 1);
 			free(filmtable);
 			if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 				return state->iErrorClass;
 
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)state->saFilmName, (_global_byte10014288 << 8) | 24, 4, 0, 0);
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, 0);
 
 			if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 				return state->iErrorClass;
+#endif
 		}
 
 		_global_numKnownFilmTypes++;
@@ -845,21 +863,27 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 
 	closedir(dirp);
 
+#if 0
+	for (i=0; i<_global_numKnownFilmTypes; i++) {
+		printf("FILM %2d: %24s (%s)\n", i+1, _global_films[i].filmName, _global_films[i].filmFile);
+	}
+#endif
+
 	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 7, 0, 3);
 
 	if (state->iErrorClass) {
 		return DP_GetPrinterStatus(state, 1);
 	} else {
-		strcpy(state->saMagicString, "Digital Palette");
+		strcpy(state->sDeviceName, "Digital Palette");
 		state->iLineLength = 2048;
 		state->iHorRes = state->iLineLength;
 		state->iVerRes = 1365;
 		state->iHorOff = 0;
 		state->iVerOff = 0;
-		state->field_30[0] = 0;
-		state->field_30[1] = 0;
-		state->field_30[2] = 0;
-		state->field_30[3] = 0;
+		state->clp = 0;
+		state->clu = 0;
+		state->cBu = 0;
+		state->cCal = 0;
 		state->cLiteDark = 3;
 		state->ucaExposTimeBlue = 100;
 		state->ucaExposTimeGreen = state->ucaExposTimeBlue;
@@ -873,28 +897,28 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 		state->caCamAdjustZ = 0;
 		state->caCamAdjustY = state->caCamAdjustZ;
 		state->caCamAdjustX = state->caCamAdjustY;
-		state->UNK_numTotalLines = state->iVerRes - 2 * state->iVerOff;// TODO: vertical centering?
+		state->iVertHeight = state->iVerRes - 2 * state->iVerOff;// TODO: vertical centering?
 		state->cServo = 4;
 		for (j=0; j<3; j++) {
 			for ( i = 0; (signed int)i < 256; i++ )
 				state->ColourLUT[(256 * j) + i] = i;
 		}
-		state->field_75[0] = 0;
-		state->field_75[1] = 0;
+		state->cBkgndMode = 0;
+		state->ucBkgndValue = 0;
 		for (j=0; j<3; j++) {
-			state->field_75[j + 2] = 0;
-			state->field_75[j + 5] = 0;
-			state->field_75[j + 8] = 0;
-			state->field_75[j + 11] = 0;
+			state->ucaUl_corner_color[j] = 0;
+			state->ucaUr_corner_color[j] = 0;
+			state->ucaLl_corner_color[j] = 0;
+			state->ucaLr_corner_color[j] = 0;
 		}
 		state->cImageCompression = 0;
-		state->field_4D4[0] = 0;
-		state->field_4D4[1] = 0;
-		state->field_4D8[0] = 100;
-		state->field_4D8[1] = 600;
-		state->field_4D8[2] = 1200;
+		state->cExp_Fix_Sticky = 0;
+		state->cExp_Fix_Type = 0;
+		state->uiExp_Fix_Min_Scans = 100;
+		state->uiExp_Fix_Max_Luminant = 600;
+		state->uiExp_Fix_Min_Hres_To_Diffuse = 1200;
 		state->bBufferWait = bufferWaitMode;
-		state->field_4C0 = 800;
+		state->line_double_threshold = 800;
 		DP_ExposureWarning(state);
 		if ( (state->bBufferWait || state->iErrorClass <= 0) && state->iErrorClass >= 0 ) {
 			DP_GetPrinterStatus(state, 0x80FFu);
@@ -902,9 +926,9 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 				return state->iErrorClass;
 			} else {
 				if (state->iErrorClass)
-					state->field_470 = 0;
+					state->cDPinitialized = 0;
 				else
-					state->field_470 = 1;
+					state->cDPinitialized = 1;
 				return state->iErrorClass;
 			}
 		} else {
@@ -986,7 +1010,7 @@ int DP_ShutDown(DPAL_STATE *state)
 	return DP_TerminateExposure(state, 1);
 }
 
-int FilmTableName(DPAL_STATE *state, int filmRecorderId, int filmType, char *buf)
+int FilmTableName(DPAL_STATE *state, int filmType, char *buf)
 {
 	if (_global_logLevel && LOG_Debug(state, __func__, DBG_STATUS))
 		return state->iErrorClass;
@@ -1088,7 +1112,7 @@ int ToolKitLog(DPAL_STATE *state, DP_LOG_LEVEL verbosity)
 	case DP_LOG_SIMPLE:
 	case DP_LOG_ADVANCED:
 		_global_logLevel = verbosity;
-		state->saMagicString[0] = verbosity;		// FIXME may not be required, Polaroid code does this
+		state->sDeviceName[0] = verbosity;		// FIXME may not be required, Polaroid code does this
 		break;
 	case DP_LOG_GET:
 		break;
@@ -1097,7 +1121,7 @@ int ToolKitLog(DPAL_STATE *state, DP_LOG_LEVEL verbosity)
 	return _global_logLevel;
 }
 
-int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsigned char a4)
+int DP_DownLoadFilms(DPAL_STATE *state, int filmType, unsigned char filmNumber)
 {
 	char fileName[200];
 	size_t fileLen;
@@ -1115,9 +1139,7 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsign
 
 	strcpy(state->saFilmFile, _global_films[filmType].filmFile);
 	strcpy(state->saFilmName, _global_films[filmType].filmName);
-	strcpy(fileName, _global_filmProfilePath);
-	strcat(fileName, "\\");
-	strcat(fileName, state->saFilmFile);
+	sprintf(fileName, "%s/%s", _global_filmProfilePath, state->saFilmFile);
 
 	if (dp_open_film_table(state, fileName)) {
 		state->iErrorClass = -6;
@@ -1131,8 +1153,8 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsign
 	fseek(state->FFilmTable, 0, SEEK_SET);
 
 	unsigned char *buf = malloc(fileLen + 2);
-	buf[0] = a4;
-	_global_byte10014288 = a4;
+	buf[0] = filmNumber;
+	_global_filmNumber = filmNumber;
 
 	if (dp_read_filmtable_bytes(state, &buf[1], fileLen) != fileLen) {
 		dp_close_filmtable(state);
@@ -1141,6 +1163,17 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsign
 		state->iErrorNumber = 6;
 		sprintf(state->sErrorMsg, "Error reading film table file %s", state->saFilmFile);
 		return state->iErrorClass;
+	}
+
+	if (filmNumber & 128) {
+		size_t i;
+		printf("Predecrypt on\n");
+		filmtable_crypto_init();
+		for (i=1; i<fileLen+1; i++) {
+			buf[i] = filmtable_crypto_decrypt(buf[i]);
+		}
+		buf[0] &= 0x7f;
+		printf("ID %-24s\n", buf+1);
 	}
 
 	dp_close_filmtable(state);
@@ -1167,7 +1200,7 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsign
 	if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 		return state->iErrorClass;
 
-	DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_byte10014288 << 8) + sizeof(state->caAspectRatio), 5, 0, 0);
+	DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) + sizeof(state->caAspectRatio), 5, 0, 0);
 
 	state->caCamAdjustX = 0;
 	state->caCamAdjustY = 0;

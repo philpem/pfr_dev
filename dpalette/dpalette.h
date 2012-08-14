@@ -24,57 +24,59 @@ Prefixes known or guessed:
   field_* fields have memory allocated but have an unknown purpose.
  */
 typedef struct {
-	char	saMagicString[24];
+	char	sDeviceName[24];
 	int		iDeviceFd;					// File descriptor associated with the SCSI device
 	int		iHorRes, iVerRes;
 	int		iLineLength;
 	int		iHorOff, iVerOff;
-	char	field_30[4];
+//	char	field_30[4];
+	char	clp, clu, cBu, cCal;
 	char	cLiteDark;
 	unsigned char	ucaExposTimeRed, ucaExposTimeGreen, ucaExposTimeBlue;
 	unsigned char	ucaLuminantRed, ucaLuminantGreen, ucaLuminantBlue;
 	char	caColorBalRed, caColorBalGreen, caColorBalBlue;
 	char	caCamAdjustX, caCamAdjustY, caCamAdjustZ;
 	char	saFilmFile[13];
-	char	saFilmName[27];				// FIXME may only be 24 chars in length
+	char	saFilmName[27];				// 23 character film name plus three status characters and a NULL
 	unsigned char	ucaFilmNumber;
-	char	field_6A[6];								// never used
-	int		UNK_numTotalLines;							// field_70
+	int		iVertHeight;							// field_70
 	char	cServo;
-	char	field_75[14];								//
+//	char	field_75[14];								//
+	char	cBkgndMode;
+	unsigned char	ucBkgndValue;
+	unsigned char	ucaUl_corner_color[3];
+	unsigned char	ucaUr_corner_color[3];
+	unsigned char	ucaLl_corner_color[3];
+	unsigned char	ucaLr_corner_color[3];
 	char	ColourLUT[768];								// three 256-entry 8bit->8bit colour channel LUTs - in order: red, green, blue
 	char	cImageCompression;
 	unsigned char	ucStatusByte0, ucStatusByte1;
-	char	field_386[2];								// never used
 	int		uiExposedLines;
-	char	saExposureStatus[64];						// seems to be a status string; updated by DP_GetPrinterStatus if mode&0x48 != 0
-	char	field_3CC;									// set by decode_scsi_inquiry_scb
+	char	sStatusMsg[64];						// seems to be a status string; updated by DP_GetPrinterStatus if mode&0x48 != 0
+	unsigned char	ucOptionByte0;									// set by decode_scsi_inquiry_scb
 	//char	saFirmwareVersion[64];
 	int		iFirmwareVersion;
 	char	caAspectRatio[2];
-	char	field_40F;									// assigned to zero by DP_GetPrinterStatus, otherwise unused
 	int		iBufferFree;
-	int		field_414;									// set and used by decode_scsi_inquiry_scb
-	char	field_418;									// never used, probably padding
+	int		iBufferTotal;									// set and used by decode_scsi_inquiry_scb
+	char	cBufferMsgTerm;									// never used, probably padding
 	unsigned char	ucCameraCode;
-	char	saCameraType[14];							// this is either 14 bytes, or 12 bytes with some padding
+	char	sCameraMsg[14];							// this is either 14 bytes, or 12 bytes with some padding
 	int		iErrorNumber;
 	char	sErrorMsg[64];
 	int		iErrorClass;
-	char	field_470;									// seems to be an "initialisation successful" flag?
-	char	field_471;									// seems to be a "film recorder detected" flag?
-	char	field_472[22];								// apparently never used
+	char	cDPinitialized;									// seems to be an "initialisation successful" flag?
+	char	cDPfound;									// seems to be a "film recorder detected" flag?
 	bool	bBufferWait;								// TRUE  -- DP_SendImageData/SemdImageBlock/DownLoadFilms will wait if the buffer is full
 														// FALSE -- they will return immediately with status == 1
-	char	field_489[11];								// apparently never used
-	char	saDriverVersion[40];
+	char	sTKversion[40];
 	FILE 	*FFilmTable;
-	int		field_4C0;
-	int		field_4C4;
-	int		field_4C8[2];
-	int		field_4D0;
-	char	field_4D4[4];
-	int		field_4D8[3];
+	int		line_double_threshold;
+	int		iMaxHorRes;
+	unsigned int	uitimes_out_of_data, uiAutoluma_whoops;
+	int		iS_series_installed;
+	char	cExp_Fix_Sticky, cExp_Fix_Type;
+	unsigned int	uiExp_Fix_Min_Scans, uiExp_Fix_Max_Luminant, uiExp_Fix_Min_Hres_To_Diffuse;
 } DPAL_STATE;
 
 /// Digital Palette models
@@ -92,7 +94,7 @@ typedef enum {
 	DP_LOG_GET = 3				///< Retrieve current log level from INI file
 } DP_LOG_LEVEL;
 
-int DP_DownLoadFilms(DPAL_STATE *state, int filmRecorderId, int filmType, unsigned char a4);
+int DP_DownLoadFilms(DPAL_STATE *state, int filmType, unsigned char filmNumber);
 int DP_ExposureWarning(DPAL_STATE *state);
 // DP_FirmWareBurn --> not implemented (intentionally!)
 // DP_FirmWareLoad --> not implemented (intentionally!)
@@ -113,7 +115,7 @@ int DP_TerminateExposure(DPAL_STATE *state, int a2);
 int DP_firmware_rev(DPAL_STATE *state);
 // DP_scsi_init --> not going to export this :)
 // DP_scsi_inq --> not going to export this :)
-int FilmTableName(DPAL_STATE *state, int filmRecorderId, int filmType, char *buf);
+int FilmTableName(DPAL_STATE *state, int filmType, char *buf);
 int NumberFilmTables(int *pNumFilmTables);
 int ToolKitLog(DPAL_STATE *state, DP_LOG_LEVEL verbosity);
 // firmware_rev --> not going to export this :)

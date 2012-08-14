@@ -5,6 +5,7 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <scsi/scsi.h>
 #include <scsi/sg.h>
 
 #include "dpalette.h"
@@ -17,10 +18,10 @@ static void dp_scsi_decode_inquiry_srb(unsigned char *scb, DPAL_STATE *state)
 	// Get firmware version from the inquiry data
 	state->iFirmwareVersion = atoi((char *)&scb[32]);
 
-	state->field_414 = (scb[40] << 8) | scb[41];
+	state->iBufferTotal = (scb[40] << 8) | scb[41];
 	if (state->iFirmwareVersion == 170)
-		state->field_414 -= 62;
-	state->field_3CC = 132;		// 132 = 128 + 4
+		state->iBufferTotal -= 62;
+	state->ucOptionByte0 = 132;		// 132 = 128 + 4
 
 	if (scb[46] == 16)
 		v5 = 4;
@@ -28,17 +29,17 @@ static void dp_scsi_decode_inquiry_srb(unsigned char *scb, DPAL_STATE *state)
 		v5 = 2;
 
 	if (v5 == 4)
-		state->field_3CC |= 0x01;
+		state->ucOptionByte0 |= 0x01;
 
-	state->field_4C4 = (scb[46] << 8) | scb[47];
+	state->iMaxHorRes = (scb[46] << 8) | scb[47];
 
-	if (state->field_414 > 128)
-		state->field_3CC |= 2;
+	if (state->iBufferTotal > 128)
+		state->ucOptionByte0 |= 2;
 
 	if (scb[36] & 0x01)
-		state->field_4D0 = true; //FIXME: TRUE;
+		state->iS_series_installed = true; //FIXME: TRUE;
 	else
-		state->field_4D0 = false; //FIXME: FALSE;
+		state->iS_series_installed = false; //FIXME: FALSE;
 }
 
 #if 0
@@ -481,7 +482,7 @@ static char *dp_scsi_decode_sense(DPAL_STATE *state, unsigned char *senseData)
 		case 0x2600:
 			state->iErrorClass = 0;
 			state->iErrorNumber = 0x2600;
-			return "Power-on reset or bus devoice reset occurred";
+			return "Power-on reset or bus device reset occurred";
 
 		case 0x2B00:
 			state->iErrorClass = -1;
@@ -597,6 +598,7 @@ int DP_doscsi_cmd(DPAL_STATE *state, int scsiCmd, void *SRB_Buffer, size_t szSRB
 	sg_io_hdr_t io_hdr;
 	unsigned char cdb[6];
 	unsigned char senseBuf[14];
+	size_t i;
 
 	// Prepare the SCSI CDB
 	cdb[0] = scsiCmd;
@@ -652,15 +654,47 @@ int DP_doscsi_cmd(DPAL_STATE *state, int scsiCmd, void *SRB_Buffer, size_t szSRB
 		return -1;
 	}
 
-	// FIXME if CHECK CONDITION then do a Request Sense and decode the sense buffer
 /*
-	if (srb->SRB_TargStat == 0x02) {		// STATUS_CHKCOND
-		return dp_scsi_do_request_sense(state, srb->SenseArea);
+	if (io_hdr.status == CHECK_CONDITION) {
+		// SCSI CHECK CONDITION
+		fprintf(stderr, "ERROR: SCSI CHECK CONDITION\nsenseBuf:");
+		hex_dump(senseBuf, sizeof(senseBuf));
+		return dp_scsi_do_request_sense(state, senseBuf);
 	} else {
+		// SCSI status good
 		return 0;
 	}
 */
-	return 0;
+
+	if ((io_hdr.info & SG_INFO_OK_MASK) != SG_INFO_OK) {
+		fprintf(stderr, "--- SCSI ERROR ---\n");
+		fprintf(stderr, "CDB buffer: ");
+		for (i=0; i<io_hdr.cmd_len; i++) {
+			fprintf(stderr, "%02X ", io_hdr.cmdp[i]);
+		}
+		fprintf(stderr, "\n");
+
+		if (io_hdr.sb_len_wr > 0) {
+			fprintf(stderr, "Sense data: ");
+			for (i=0; i<io_hdr.sb_len_wr; i++) {
+				fprintf(stderr, "%02X ", senseBuf[i]);
+			}
+			fprintf(stderr, "\n");
+			i = dp_scsi_do_request_sense(state, senseBuf);
+			fprintf(stderr, "  Error: %04X (%s)\n", state->iErrorNumber, state->sErrorMsg);
+			return i;
+		}
+
+		if (io_hdr.masked_status)
+			fprintf(stderr, "SCSI BUS  status: %d %d\n", io_hdr.masked_status, io_hdr.status);
+		if (io_hdr.host_status)
+			fprintf(stderr, "SCSI HOST status: %d %d\n", io_hdr.host_status);
+		if (io_hdr.driver_status)
+			fprintf(stderr, "SCSI DRVR status: %d %d\n", io_hdr.driver_status);
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 int DP_scsi_inq(DPAL_STATE *state)
