@@ -229,7 +229,7 @@ int DP_StartExposure(DPAL_STATE *state)
 		return DP_GetPrinterStatus(state, 1);			// FIXME: MAGIC NUMBER
 	}
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 0, 0, 3);		// FIXME: MAGIC NUMBERS
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 0, 0, SCSI_DIR_NONE);		// FIXME: MAGIC NUMBERS
 
 	if (state->iErrorClass) {
 		if (_global_logLevel)
@@ -252,7 +252,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 
 	dp_PrepareParamBuffer(state, paramBuf);
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x15, paramBuf, sizeof(paramBuf), 0, 0, 1);	// FIXME: MAGIC NUMBERS
+	state->iErrorClass = DP_doscsi_cmd(state, 0x15, paramBuf, sizeof(paramBuf), 0, 0, SCSI_DIR_OUTPUT);	// FIXME: MAGIC NUMBERS
 
 	if (state->iErrorClass) {
 		if (_global_logLevel) {
@@ -268,7 +268,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 											256,
 											1,
 											i,
-											1);
+											SCSI_DIR_OUTPUT);
 		if (state->iErrorClass) {
 			if (_global_logLevel) {
 				LOG_Error(state, __func__, ERR_STATUS);
@@ -286,7 +286,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		paramBuf[11+i] = state->ucaLr_corner_color[i];
 	}
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, 1);		// FIXME: MAGIC NUMBERS
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, SCSI_DIR_OUTPUT);		// FIXME: MAGIC NUMBERS
 
 	if (state->iErrorClass) {
 		if (_global_logLevel) {
@@ -300,7 +300,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 	camAdjBuf[2] = state->caCamAdjustY;
 	camAdjBuf[3] = state->caCamAdjustZ;
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, camAdjBuf, sizeof(camAdjBuf), 9, 0, 1);		// FIXME: MAGIC NUMBERS
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, camAdjBuf, sizeof(camAdjBuf), 9, 0, SCSI_DIR_OUTPUT);		// FIXME: MAGIC NUMBERS
 
 	if (state->iErrorClass) {
 		if (_global_logLevel) {
@@ -316,7 +316,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		dp_write_int_be(state->uiExp_Fix_Min_Hres_To_Diffuse,  extBuf, 6);
 		dp_write_int_be(state->cExp_Fix_Sticky, extBuf, 8);
 
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, extBuf, sizeof(extBuf), 0x12, 0, 1);		// FIXME: MAGIC NUMBERS
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, extBuf, sizeof(extBuf), 0x12, 0, SCSI_DIR_OUTPUT);		// FIXME: MAGIC NUMBERS
 
 		// FIXME? I think this is right, but it may be in the wrong place...
 		if (state->iErrorClass) {
@@ -336,7 +336,7 @@ int DP_SendPrinterParams(DPAL_STATE *state)
 		paramBuf[11+i] = state->ucaLr_corner_color[i];
 	}
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, 1);		// FIXME: MAGIC NUMBERS
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, paramBuf, 14, 8, 0, SCSI_DIR_OUTPUT);		// FIXME: MAGIC NUMBERS
 
 	// FIXME? I think this is right, but it may be in the wrong place...
 	if (state->iErrorClass) {
@@ -375,7 +375,7 @@ int DP_SendImageData(DPAL_STATE *state, const unsigned int lineNumber, const uns
 		if (state->cImageCompression)
 			memcpy(&imagedata_buffer[2], src, size);
 		dp_write_int_be(lineNumber, imagedata_buffer, 0);
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0A, imagedata_buffer, size + 2, 0, flags, 1);	// FIXME: MAGIC NUMBERS
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0A, imagedata_buffer, size + 2, 0, flags, SCSI_DIR_OUTPUT);	// FIXME: MAGIC NUMBERS
 
 		if (state->iErrorClass) {
 			if (_global_logLevel == 1)
@@ -462,7 +462,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 				return state->iErrorClass;
 		}
 
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 7, 6, 0, 0);		// FIXME: magic numbers
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 7, 6, 0, SCSI_DIR_INPUT);		// FIXME: magic numbers
 
 		UPDATE_ERROR_CLASS(state);
 		if (state->iErrorClass)
@@ -502,7 +502,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 
 	// mode & 0x02 --> get camera type
 	if (mode & 0x02) {		// FIXME: MAGIC NUMBER
-		state->iErrorClass = DP_doscsi_cmd(state, 0x1A, buf, 61, 0, 0, 0);	// FIXME: MAGIC NUMBER   scsi read mode page
+		state->iErrorClass = DP_doscsi_cmd(state, 0x1A, buf, 61, 0, 0, SCSI_DIR_INPUT);	// FIXME: MAGIC NUMBER   scsi read mode page
 		UPDATE_ERROR_CLASS(state);
 
 		if (state->iErrorClass)
@@ -514,7 +514,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 
 	// mode & 0x10 --> get film name
 	if (mode & 0x10) {		// FIXME: MAGIC NUMBER
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)&state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, 0); // 24 = 0x18 FIXME length of str?
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)&state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, SCSI_DIR_INPUT); // 24 = 0x18 FIXME length of str?
 				// FIXME: MAGIC NUMBER ^^^
 
 		if (state->iErrorClass) {
@@ -531,7 +531,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 	// mode & 0x20 --> get aspect ratio
 	if (mode & 0x20) {		// FIXME: MAGIC NUMBER
 		if (state->saFilmName[0]) {
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) | 2, 5, 0, 0);	// FIXME 2 = length?
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) | 2, 5, 0, SCSI_DIR_INPUT);	// FIXME 2 = length?
 					// FIXME: MAGIC NUMBER ^^^
 
 			if (state->iErrorClass)
@@ -545,7 +545,7 @@ int DP_GetPrinterStatus(DPAL_STATE *state, int mode)
 	// mode & 0x8000 -->
 	if (mode & 0x8000) {	// FIXME: MAGIC NUMBER
 		if (state->iFirmwareVersion > 304) {
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 4, 20, 0, 0);	// FIXME: MAGIC NUMBERS
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, 4, 20, 0, SCSI_DIR_INPUT);	// FIXME: MAGIC NUMBERS
 
 			if (state->iErrorClass)
 				return DP_GetPrinterStatus(state, 1);
@@ -659,7 +659,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 
 	state->cDPfound = 1;
 
-	int CFRModel = -1;
+	DP_MODEL CFRModel;
 	// FIXME in this block: magic numbers!
 	if (state->iFirmwareVersion >= 500) {
 		if ((state->iFirmwareVersion <= 700) || (state->iFirmwareVersion >= 800)) {
@@ -807,10 +807,10 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 			filmtableFileLen = ftell(state->FFilmTable);
 			fseek(state->FFilmTable, 0, SEEK_SET);
 
-			char *filmtable =malloc(filmtableFileLen + 2);
+			unsigned char *filmtable = (unsigned char *)malloc(filmtableFileLen + 2);
 			*filmtable = _global_filmNumber;
 
-			if (dp_read_filmtable_bytes(state, (unsigned char *)filmtable+1, filmtableFileLen) != filmtableFileLen) {
+			if (dp_read_filmtable_bytes(state, filmtable+1, filmtableFileLen) != filmtableFileLen) {
 				dp_close_filmtable(state);
 				free(filmtable);
 				state->iErrorClass = -6;
@@ -838,12 +838,12 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 			}
 #endif
 #if LOADFILMS
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)filmtable, filmtableFileLen + 1, 10, 0, 1);
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)filmtable, filmtableFileLen + 1, 10, 0, SCSI_DIR_OUTPUT);
 			free(filmtable);
 			if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 				return state->iErrorClass;
 
-			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, 0);
+			state->iErrorClass = DP_doscsi_cmd(state, 0x0C, (unsigned char *)state->saFilmName, (_global_filmNumber << 8) | 24, 4, 0, SCSI_DIR_INPUT);
 
 			if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 				return state->iErrorClass;
@@ -851,7 +851,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 		}
 
 		_global_numKnownFilmTypes++;
-		FILMTABLE *ft = realloc(_global_films, _global_numKnownFilmTypes * sizeof(_global_films[0]));
+		FILMTABLE *ft = (FILMTABLE *)realloc(_global_films, _global_numKnownFilmTypes * sizeof(_global_films[0]));
 		if (ft == NULL) {
 			// FIXME: ERROR: out of memory
 		}
@@ -869,7 +869,7 @@ int DP_InitPrinter(DPAL_STATE *state, bool bufferWaitMode, char *filmRecorderID)
 	}
 #endif
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 7, 0, 3);
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 7, 0, SCSI_DIR_NONE);
 
 	if (state->iErrorClass) {
 		return DP_GetPrinterStatus(state, 1);
@@ -944,7 +944,7 @@ int DP_InqBlockMode(DPAL_STATE *state, unsigned int *bmData)
 	unsigned char buf[8];
 	int i;
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, sizeof(buf), 21, 0, 0);
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, sizeof(buf), 21, 0, SCSI_DIR_INPUT);
 	if (state->iErrorClass) {
 		state->iErrorNumber = -2;
 		strcpy(state->sErrorMsg, "Block mode. Inquiry command error");
@@ -965,7 +965,7 @@ int DP_Pacing(DPAL_STATE *state, int pacing)
 
 	buf[0] = (pacing >> 8) & 0xff;
 	buf[1] = pacing & 0xff;
-	DP_doscsi_cmd(state, 0x0C, buf, sizeof(buf), 31, 0, 1);
+	DP_doscsi_cmd(state, 0x0C, buf, sizeof(buf), 31, 0, SCSI_DIR_OUTPUT);
 	return state->iErrorClass;
 }
 
@@ -974,7 +974,7 @@ int DP_ResetToDefault(DPAL_STATE *state)
 	if (_global_logLevel && LOG_Debug(state, __func__, DBG_STATUS))
 		return state->iErrorClass;
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 7, 0, 3);		// FIXME magic numbers
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 7, 0, SCSI_DIR_NONE);		// FIXME magic numbers
 
 	if (state->iErrorClass)
 		return DP_GetPrinterStatus(state, 1);
@@ -1054,7 +1054,7 @@ int DP_TerminateExposure(DPAL_STATE *state, int a2)
 
 	if (!a2) {	// 10001CF6 compare
 		// 10001d00 true
-		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 3, 0, 3);
+		state->iErrorClass = DP_doscsi_cmd(state, 0x0C, 0, 0, 3, 0, SCSI_DIR_NONE);
 	} else {
 		// 10001d47 false --> a2 is zero
 		if (DP_firmware_rev(state) == 170) {
@@ -1077,7 +1077,7 @@ int DP_TerminateExposure(DPAL_STATE *state, int a2)
 		}
 
 		// 10001df6
-		state->iErrorClass = DP_doscsi_cmd(state, 0x1B, 0, 0, 0, 0, 3);		// SCSI START/STOP UNIT
+		state->iErrorClass = DP_doscsi_cmd(state, 0x1B, 0, 0, 0, 0, SCSI_DIR_NONE);		// SCSI START/STOP UNIT
 
 		// 10001e29
 		if ((var_4 == 3) || ((state->iErrorClass != 0) && (DP_firmware_rev(state) == 170))) {
@@ -1152,7 +1152,7 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmType, unsigned char filmNumber)
 	fileLen = ftell(state->FFilmTable);
 	fseek(state->FFilmTable, 0, SEEK_SET);
 
-	unsigned char *buf = malloc(fileLen + 2);
+	unsigned char *buf = (unsigned char *)malloc(fileLen + 2);
 	buf[0] = filmNumber;
 	_global_filmNumber = filmNumber;
 
@@ -1195,12 +1195,12 @@ int DP_DownLoadFilms(DPAL_STATE *state, int filmType, unsigned char filmNumber)
 	}
 #endif
 
-	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, fileLen + 1, 10, 0, 1);
+	state->iErrorClass = DP_doscsi_cmd(state, 0x0C, buf, fileLen + 1, 10, 0, SCSI_DIR_OUTPUT);
 	free(buf);
 	if (state->iErrorClass || DP_GetPrinterStatus(state, 1))
 		return state->iErrorClass;
 
-	DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) + sizeof(state->caAspectRatio), 5, 0, 0);
+	DP_doscsi_cmd(state, 0x0C, state->caAspectRatio, (_global_filmNumber << 8) + sizeof(state->caAspectRatio), 5, 0, SCSI_DIR_INPUT);
 
 	state->caCamAdjustX = 0;
 	state->caCamAdjustY = 0;
